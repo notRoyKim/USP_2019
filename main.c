@@ -11,46 +11,26 @@
 
 // char* find_get_name (char *buf)
 
-char* find_content_type (char *filename) {
-	char *p;
-	int i;
-	char buf1[256];
-	char *buf2;
-	char *token;
+char* find_content_type (char *filename);
 
-	p = (char *)malloc(30);
-	strcpy(buf1, filename);
-
-	token = strtok(buf1, ".");
-	while(token != NULL)
-	{
-		buf2 = token;
-		token = strtok(NULL, ".");
-	}
-
-	if(strcmp(buf2, "html") == 0 || strcmp(buf2, "hml") ==  0)
-		strcpy(buf2, "Content-Type: text/html \r\n");
-	else if(strcmp(buf2, "txt") == 0)
-		strcpy(buf2, "Content-Type: text/plain \r\n");
-	else if(strcmp(buf2, "jpg") == 0 || strcmp(buf2, "jpeg") ==  0)
-		strcpy(buf2, "Content-Type: image/jpeg \r\n");
-	else if(strcmp(buf2, "gif") == 0)
-		strcpy(buf2, "Content-Type: image/gif \r\n");
-	else
-		strcpy(buf2, "Content-Type: application/octet-stream \r\n");
-
-	p = buf2;
-	printf("content-type: %s\n", p);
-	return p;
-}
+void refered(int ns, char* filename);
     
 int main(int argc, char* argv[]) {    
 	int create_socket, new_socket;
 	int optvalue = 1;
+
 	socklen_t addrlen;
+
 	int bufsize = 1024;
+	char filetype[256] = {};
+	FILE *fp;
+	struct stat filestat;
+	int filesiz;
+	int fd;
+
 	char *buffer = malloc(bufsize);
 	struct sockaddr_in address;
+
 	int PORT = atoi(argv[1]);
 
 	int i;
@@ -58,7 +38,6 @@ int main(int argc, char* argv[]) {
 	char *path;
 	char getPath[256] = "./html";
 
-	FILE *fp;
 	char str[BUFSIZ -1] = {};
 
 	char *cont;
@@ -102,23 +81,87 @@ int main(int argc, char* argv[]) {
 // finding GET
 		strtok(buffer," ");
 		path = strtok(NULL," ");
-		
-		if(!strcmp(path,"/")){
+		printf("%s",path);
+
+//file exist check (in test, this does not need for speed up. because we already have all test case)
+		strcat(getPath,path);
+		fp = fopen(getPath,"r");
+
+		fd = open (getPath, O_RDONLY);
+		if( fstat(fd, &filestat) < 0)
+			printf ("Error in measuring the size of the file");
+//filetype saved
+		strcpy(filetype,find_content_type(path));
+
+//if file does not exist, or 
+		if(strcmp(path,"/") == 0)
+		{
+			fclose(fp);
+
 			fp = fopen("./html/index.html","r");
+			printf("%ld\n",filestat.st_size);
 			while(fgets(str,10000,fp))
 			{
 				write(new_socket, str, strlen(str));
 			}
 		}
+		else if(strcmp(path,"/index.html") == 0)
+		{
+			fclose(fp);
+			fp = fopen("./html/index.html","r");
+
+			while(fgets(str,10000,fp))
+			{
+				write(new_socket, str, strlen(str));
+			}
+
+		}
 		else{
-			strcat(getPath,path);
 			sendimg = open(getPath, O_RDONLY);
 			sendfile(new_socket,sendimg,NULL,10000);
 			close(sendimg);
 		}
 
+
 		close(new_socket);
 	}
 	close(create_socket);
 	return 0;
+}
+
+char* find_content_type (char *filename) {
+	char *p;
+	int i;
+	char buf1[256];
+	char *buf2;
+	char *token;
+
+	p = (char *)malloc(30);
+	strcpy(buf1, filename);
+
+	token = strtok(buf1, ".");
+	while(token != NULL)
+	{
+		buf2 = token;
+		token = strtok(NULL, ".");
+	}
+
+	if(strcmp(buf2, "html") == 0 || strcmp(buf2, "hml") ==  0)
+		strcpy(buf2, "Content-Type: text/html \r\n");
+	else if(strcmp(buf2, "txt") == 0)
+		strcpy(buf2, "Content-Type: text/plain \r\n");
+	else if(strcmp(buf2, "jpg") == 0 || strcmp(buf2, "jpeg") ==  0)
+		strcpy(buf2, "Content-Type: image/jpeg \r\n");
+	else if(strcmp(buf2, "gif") == 0)
+		strcpy(buf2, "Content-Type: image/gif \r\n");
+	else
+		strcpy(buf2, "Content-Type: application/octet-stream \r\n");
+
+	p = buf2;
+	//printf("%s\n", p);
+	return p;
+}
+
+void refered(int ns, char* filename)
+{
 }
