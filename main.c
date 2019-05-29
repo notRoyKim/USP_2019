@@ -10,49 +10,31 @@
 #include <fcntl.h>
 #include <pthread.h>
 
-// char* find_get_name (char *buf)
+char basicpath[512] = ".";
 
-/*
-void *threadfunc(void *vargp)
-{
-	int new_socket;
-	struct sockaddr_in address;
-	socklen_t addrlen;
-
-	if ((new_socket = accept(create_socket, (struct sockaddr *) &address, &addrlen)) == -1)
-	{
-		perror("server: accept");
-		exit(1);
-	}
-
-	if (new_socket > 0)
-	{    
-		printf("The Client is connected...\n");
-	}
-
-}
-*/
+void *threadfunc(void *vargp);
 
 char* find_content_type (char *filename);
 
 void refered(int ns, char* filename);
-    
+   
 int main(int argc, char* argv[]) {    
 	struct sockaddr_in address;
-	int create_socket, new_socket;
+	int create_socket;
+	int *new_socket;
 	int optvalue = 1;
 	socklen_t addrlen;
-	int bufsize = 1024;
 
 	pthread_t tid;
 
-	int PORT = atoi(argv[1]);
+	int PORT = atoi(argv[2]);
 	int i;
 
-	char getPath[512] = {};
+	char getPath[512];
 	char str[BUFSIZ] = {};
-	char *buffer = malloc(bufsize);
-	char path[512] = {};
+	char buffer[1024] = {};
+
+	strcat(basicpath,argv[1]);
 
 	if ((create_socket = socket(AF_INET, SOCK_STREAM, 0)) == -1)
 	{
@@ -70,41 +52,21 @@ int main(int argc, char* argv[]) {
 	}
 
     	setsockopt(create_socket, SOL_SOCKET, SO_REUSEADDR, &optvalue, sizeof(optvalue));
+	
+	if (listen(create_socket, 10) < 0)
+	{    
+		perror("server: listen");    
+		exit(1);
+	}
 
 	while (1)
 	{
-		if (listen(create_socket, 10) < 0)
-		{    
-			perror("server: listen");    
+		new_socket = (int *)malloc(sizeof(int));
+		if ((*new_socket = accept(create_socket, (struct sockaddr *)&address, &addrlen))==-1){
+			perror("accept");
 			exit(1);
 		}
-
-		if ((new_socket = accept(create_socket, (struct sockaddr *) &address, &addrlen)) == -1)
-		{    
-			perror("server: accept");
-			exit(1);
-		}
-		if (new_socket > 0)
-		{    
-			printf("The Client is connected...\n");
-		}
-		strcpy(getPath,"");
-		strcpy(getPath,argv[2]);
-		
-		
-		recv(new_socket, buffer, bufsize, 0);
-		printf("%s\n", buffer);
-
-// finding GET
-		strtok(buffer," ");
-		strcat(getPath,strtok(NULL," "));
-		if(strcmp(getPath,"./html/favicon.ico") == 0)
-		{
-			write(new_socket,"HTTP/1.1 404 Not Found\r\n",26);
-			close(new_socket);
-		}
-		else
-			refered(new_socket,getPath);
+		pthread_create(&tid, NULL, threadfunc, (void*)new_socket);
 	}
 	close(create_socket);
 	return 0;
@@ -124,7 +86,7 @@ char* find_content_type (char *filename) {
 		token = strtok(NULL, ".");
 	}
 
-	if(strcmp(buf2, "html") == 0 || strcmp(buf2, "hml") ==  0)
+	if(strcmp(buf2, "html") == 0 || strcmp(buf2, "htm") ==  0)
 		strcpy(buf2, "Content-Type: text/html \r\n");
 	else if(strcmp(buf2, "txt") == 0)
 		strcpy(buf2, "Content-Type: text/plain \r\n");
@@ -179,4 +141,30 @@ void refered(int ns, char* filename) {
 	}
 	fclose(fp);
 	close (ns);
+}
+
+void *threadfunc(void *vargp)
+{
+	int* new_socket = (int *) vargp;
+	struct sockaddr_in address;
+	socklen_t addrlen;
+	char buffer[1024] = {};
+	char getPath[1024] = {};
+
+	recv(*new_socket, buffer, 1024, 0);
+	printf("%s\n", buffer);
+
+	strcpy(getPath,basicpath);
+	strtok(buffer," ");
+	strcat(getPath,strtok(NULL," "));
+	
+	if(strcmp(getPath,"./html/favicon.ico") == 0)
+	{
+		write(*new_socket,"HTTP/1.1 404 Not Found\r\n",26);
+		close(*new_socket);
+	}
+	else
+		refered(*new_socket,getPath);
+	free(vargp);
+	return NULL;
 }
