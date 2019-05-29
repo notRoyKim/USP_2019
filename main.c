@@ -41,6 +41,8 @@ int main(int argc, char* argv[]) {
 		perror("socket");
 		exit(1);
 	}
+	
+	setsockopt(create_socket, SOL_SOCKET, SO_REUSEADDR, &optvalue, sizeof(optvalue));
 
 	address.sin_family = AF_INET;
 	address.sin_addr.s_addr = inet_addr("0.0.0.0");
@@ -51,8 +53,6 @@ int main(int argc, char* argv[]) {
 		exit(1);
 	}
 
-    	setsockopt(create_socket, SOL_SOCKET, SO_REUSEADDR, &optvalue, sizeof(optvalue));
-	
 	if (listen(create_socket, 10) < 0)
 	{    
 		perror("server: listen");    
@@ -104,7 +104,7 @@ void refered(int ns, char* filename) {
 	struct stat filestat;
 	FILE *fp;
 	int fd;
-	char header_buff [2048];
+	char header_buff[2048] = {};
 	char file_buff [1000000] = {};
 	char filesize[8];
 	char filetype[512] = {};
@@ -114,7 +114,6 @@ void refered(int ns, char* filename) {
 	if(((fd = open(filename, O_RDONLY)) < -1) || (fstat(fd, &filestat) < 0))
 	{
 		printf("Error in measuring the size of the file\n");
-		exit(1);
 	}
 	else
 		sprintf(filesize, "%zd", filestat.st_size);
@@ -122,11 +121,13 @@ void refered(int ns, char* filename) {
 	if((fp = fopen(filename,"r")) ==  NULL)
 	{
 		printf("can't open file\n");
+				
 	}
 
 	if(fp == NULL)
 	{
-		write(ns,"HTTP/1.1 404 Not Found\r\n",26);
+		strcpy (header_buff, "HTTP/1.1 404 Not Found\r\nContent-Length: 0\r\nContent-Type: text/plain\r\nConnection: keep-alive\r\n\r\n");
+		write (ns, header_buff, strlen(header_buff));
 	}
 	else if(fp != NULL)
 	{
@@ -138,9 +139,9 @@ void refered(int ns, char* filename) {
 		fread (file_buff, sizeof(char), filestat.st_size + 1, fp);
 		write (ns, header_buff, strlen(header_buff));
 		write (ns, file_buff, filestat.st_size);
+		fclose(fp);
 	}
-	fclose(fp);
-	close (ns);
+	close(ns);
 }
 
 void *threadfunc(void *vargp)
@@ -158,13 +159,7 @@ void *threadfunc(void *vargp)
 	strtok(buffer," ");
 	strcat(getPath,strtok(NULL," "));
 	
-	if(strcmp(getPath,"./html/favicon.ico") == 0)
-	{
-		write(*new_socket,"HTTP/1.1 404 Not Found\r\n",26);
-		close(*new_socket);
-	}
-	else
-		refered(*new_socket,getPath);
+	refered(*new_socket,getPath);
 	free(vargp);
 	return NULL;
 }
