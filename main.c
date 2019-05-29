@@ -14,8 +14,6 @@ char basicpath[512] = ".";
 
 void *threadfunc(void *vargp);
 
-char* find_content_type (char *filename);
-
 void refered(int ns, char* filename);
    
 int main(int argc, char* argv[]) {    
@@ -72,34 +70,6 @@ int main(int argc, char* argv[]) {
 	return 0;
 }
 
-char* find_content_type (char *filename) {
-	char buf1[256];
-	char *buf2;
-	char *token;
-
-	strcpy(buf1, filename);
-
-	token = strtok(buf1, ".");
-	while(token != NULL)
-	{
-		buf2 = token;
-		token = strtok(NULL, ".");
-	}
-
-	if(strcmp(buf2, "html") == 0 || strcmp(buf2, "htm") ==  0)
-		strcpy(buf2, "Content-Type: text/html \r\n");
-	else if(strcmp(buf2, "txt") == 0)
-		strcpy(buf2, "Content-Type: text/plain \r\n");
-	else if(strcmp(buf2, "jpg") == 0 || strcmp(buf2, "jpeg") ==  0)
-		strcpy(buf2, "Content-Type: image/jpeg \r\n");
-	else if(strcmp(buf2, "gif") == 0)
-		strcpy(buf2, "Content-Type: image/gif \r\n");
-	else
-		strcpy(buf2, "Content-Type: application/octet-stream \r\n");
-
-	return buf2;
-}
-
 void refered(int ns, char* filename) {
 	struct stat filestat;
 	FILE *fp;
@@ -107,9 +77,6 @@ void refered(int ns, char* filename) {
 	char header_buff[2048] = {};
 	char file_buff [1000000] = {};
 	char filesize[8];
-	char filetype[512] = {};
-
-	strcpy(filetype,find_content_type(filename));
 
 	if(((fd = open(filename, O_RDONLY)) < -1) || (fstat(fd, &filestat) < 0))
 	{
@@ -133,9 +100,7 @@ void refered(int ns, char* filename) {
 	{
 		strcpy (header_buff, "HTTP/1.1 200 OK\r\nContent-Length: ");
 		strcat (header_buff, filesize);
-		strcat (header_buff, "\r\n");
-		strcat (header_buff, filetype);
-		strcat (header_buff, "Connection: keep-alive\r\n\r\n");
+		strcat (header_buff, "\r\nContent-Type: */* \r\nConnection: keep-alive\r\n\r\n");
 		fread (file_buff, sizeof(char), filestat.st_size + 1, fp);
 		write (ns, header_buff, strlen(header_buff));
 		write (ns, file_buff, filestat.st_size);
