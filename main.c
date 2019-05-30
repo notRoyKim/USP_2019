@@ -22,7 +22,6 @@ int main(int argc, char* argv[]) {
 	int *new_socket;
 	int optvalue = 1;
 	socklen_t addrlen;
-
 	pthread_t tid;
 	int PORT = atoi(argv[2]);
 
@@ -79,11 +78,11 @@ void refered(int ns, char* filename) {
 		printf("Error in measuring the size of the file\n");
 	}
 	else
+	{
 		sprintf(filesize, "%zd", filestat.st_size);
-
+	}
 	if((fp = fopen(filename,"r")) ==  NULL)
 	{
-		printf("can't open file\n");
 		strcpy (header_buff, "HTTP/1.1 404 Not Found\r\nContent-Length: 0\r\nContent-Type: text/plain\r\nConnection: keep-alive\r\n\r\n");
 		write (ns, header_buff, strlen(header_buff));
 	}
@@ -105,15 +104,17 @@ void *threadfunc(void *vargp)
 	int* new_socket = (int *) vargp;
 	struct sockaddr_in address;
 	socklen_t addrlen;
-	char buffer[512] = {};
+	char buffer[1024] = {};
 	char getPath[512] = {};
 	char openfilename[200] = {};
-	int fd;
 
-	recv(*new_socket, buffer, 4096, 0);
-	printf("%s\n", buffer);
+	recv(*new_socket, buffer, 1024, 0);
+	if(strcmp(buffer,"") == 0)
+		return NULL;
+
+//	printf("%s\n", buffer);
+
 	strcpy(getPath,basicpath);
-
 	strtok(buffer," ");
 	strcpy(openfilename,strtok(NULL," "));
 
@@ -122,7 +123,9 @@ void *threadfunc(void *vargp)
 		
 	strcat(getPath,openfilename);
 
+	printf("get %s\n",getPath);
 	refered(*new_socket,getPath);
+
 	free(vargp);
 	return NULL;
 }
