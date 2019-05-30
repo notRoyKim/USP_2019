@@ -14,7 +14,9 @@ char basicpath[512] = ".";
 
 void *threadfunc(void *vargp);
 
-int refered(int ns, char* filename);
+void refered(int ns, char* filename);
+
+void responseCGI(int ns, char * cgi);
    
 int main(int argc, char* argv[]) {    
 	struct sockaddr_in address;
@@ -54,22 +56,19 @@ int main(int argc, char* argv[]) {
 	while (1)
 	{
 		new_socket = (int *)malloc(sizeof(int));
-		printf("is this okay?");
 		if ((*new_socket = accept(create_socket, (struct sockaddr *)&address, &addrlen))==-1){
 			perror("accept");
 			exit(1);
 		}
-		printf("yes\n");
 
-		if(pthread_create(&tid, NULL, threadfunc, (void*)new_socket) != 0)
-			continue;
+		pthread_create(&tid, NULL, threadfunc, (void*)new_socket);
 		pthread_join(tid,NULL);
 	}
 	close(create_socket);
 	return 0;
 }
 
-int refered(int ns, char* filename) {
+void refered(int ns, char* filename) {
 	struct stat filestat;
 	FILE *fp;
 	int fd;
@@ -89,7 +88,6 @@ int refered(int ns, char* filename) {
 	{
 		strcpy (header_buff, "HTTP/1.1 404 Not Found\r\nContent-Length: 0\r\nContent-Type: text/plain\r\nConnection: keep-alive\r\n\r\n");
 		write (ns, header_buff, strlen(header_buff));
-		return -1;
 	}
 	else
 	{
@@ -100,13 +98,11 @@ int refered(int ns, char* filename) {
 
 		write (ns, header_buff, strlen(header_buff));
 		write (ns, file_buff, filestat.st_size);
+		close(fd);
+		fclose(fp);
+
 
 	}
-	fflush(fp);
-	close(fd);
-	if(fclose(fp) == 0)
-		printf("free sucess\n");
-	return 0;
 }
 
 void *threadfunc(void *vargp)
@@ -117,10 +113,14 @@ void *threadfunc(void *vargp)
 	char buffer[1024] = {};
 	char getPath[512] = {};
 	char openfilename[200] = {};
+	FILE * fp;
+
+//	fp = fopen("log.txt","a+");
 
 	recv(*new_socket, buffer, 1024, 0);
 	if(strcmp(buffer,"") == 0)
 		return NULL;
+	
 	printf("%s\n",buffer);
 
 	strcpy(getPath,basicpath);
@@ -129,13 +129,50 @@ void *threadfunc(void *vargp)
 
 	if(strcmp(openfilename,"/") == 0)
 		strcpy(openfilename,"/index.html");
-		
-	strcat(getPath,openfilename);
 
-//	printf("get %s\n",getPath);
-	refered(*new_socket,getPath);
+	if(strstr(openfilename,"total.cgi") != NULL)
+	{
+		responseCGI(*new_socket,openfilename);
+	}
+	else
+	{
+//		printf("get %s\n",getPath);
+		strcat(getPath,openfilename);
+		refered(*new_socket,getPath);
+	}
 
 	close(*new_socket);
 	free(vargp);
 	return NULL;
+}
+
+void responseCGI(int ns, char * cgi)
+{
+	int n;
+	int m;
+	int i;
+	int sum = 0;
+	char file[64] = {};
+	char header_buff[2048] = {};
+	char filelen[100] = {};
+	int ifilelen;
+	
+	strtok(cgi,"=");
+	n = atoi(strtok(NULL,"&"));
+	strtok(NULL,"=");
+	m = atoi(strtok(NULL," "));
+
+	for(i = n; i <= m ; i++)
+		sum += i;
+
+	sprintf(file, "%d", sum);
+	ifilelen = strlen(file);
+	sprintf(filelen,"%d",ifilelen);
+	
+	strcpy (header_buff, "HTTP/1.1 200 OK\r\nContent-Length: ");
+	strcat (header_buff,filelen);
+	strcat (header_buff, "\r\nContent-Type: text/plain \r\nConnection: keep-alive\r\n\r\n");
+
+	write (ns, header_buff, strlen(header_buff));
+	write(ns, file,ifilelen);
 }
