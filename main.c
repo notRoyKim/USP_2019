@@ -14,7 +14,7 @@ char basicpath[512] = ".";
 
 void *threadfunc(void *vargp);
 
-void refered(int ns, char* filename);
+int refered(int ns, char* filename);
    
 int main(int argc, char* argv[]) {    
 	struct sockaddr_in address;
@@ -54,18 +54,22 @@ int main(int argc, char* argv[]) {
 	while (1)
 	{
 		new_socket = (int *)malloc(sizeof(int));
+		printf("is this okay?");
 		if ((*new_socket = accept(create_socket, (struct sockaddr *)&address, &addrlen))==-1){
 			perror("accept");
 			exit(1);
 		}
-		pthread_create(&tid, NULL, threadfunc, (void*)new_socket);
-		pthread_detach(tid);
+		printf("yes\n");
+
+		if(pthread_create(&tid, NULL, threadfunc, (void*)new_socket) != 0)
+			continue;
+		pthread_join(tid,NULL);
 	}
 	close(create_socket);
 	return 0;
 }
 
-void refered(int ns, char* filename) {
+int refered(int ns, char* filename) {
 	struct stat filestat;
 	FILE *fp;
 	int fd;
@@ -85,6 +89,7 @@ void refered(int ns, char* filename) {
 	{
 		strcpy (header_buff, "HTTP/1.1 404 Not Found\r\nContent-Length: 0\r\nContent-Type: text/plain\r\nConnection: keep-alive\r\n\r\n");
 		write (ns, header_buff, strlen(header_buff));
+		return -1;
 	}
 	else
 	{
@@ -92,11 +97,16 @@ void refered(int ns, char* filename) {
 		strcat (header_buff, filesize);
 		strcat (header_buff, "\r\nContent-Type: */* \r\nConnection: keep-alive\r\n\r\n");
 		fread (file_buff, sizeof(char), filestat.st_size + 1, fp);
+
 		write (ns, header_buff, strlen(header_buff));
 		write (ns, file_buff, filestat.st_size);
-		fclose(fp);
+
 	}
-	close(ns);
+	fflush(fp);
+	close(fd);
+	if(fclose(fp) == 0)
+		printf("free sucess\n");
+	return 0;
 }
 
 void *threadfunc(void *vargp)
@@ -111,8 +121,7 @@ void *threadfunc(void *vargp)
 	recv(*new_socket, buffer, 1024, 0);
 	if(strcmp(buffer,"") == 0)
 		return NULL;
-
-//	printf("%s\n", buffer);
+	printf("%s\n",buffer);
 
 	strcpy(getPath,basicpath);
 	strtok(buffer," ");
@@ -123,9 +132,10 @@ void *threadfunc(void *vargp)
 		
 	strcat(getPath,openfilename);
 
-	printf("get %s\n",getPath);
+//	printf("get %s\n",getPath);
 	refered(*new_socket,getPath);
 
+	close(*new_socket);
 	free(vargp);
 	return NULL;
 }
