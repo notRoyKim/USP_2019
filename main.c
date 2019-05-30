@@ -24,13 +24,7 @@ int main(int argc, char* argv[]) {
 	socklen_t addrlen;
 
 	pthread_t tid;
-
 	int PORT = atoi(argv[2]);
-	int i;
-
-	char getPath[512];
-	char str[BUFSIZ] = {};
-	char buffer[1024] = {};
 
 	strcat(basicpath,argv[1]);
 
@@ -46,7 +40,8 @@ int main(int argc, char* argv[]) {
 	address.sin_addr.s_addr = inet_addr("0.0.0.0");
 	address.sin_port = htons(PORT);
 
-	if (bind(create_socket, (struct sockaddr *) &address, sizeof(address)) == -1){    
+	if (bind(create_socket, (struct sockaddr *) &address, sizeof(address)) == -1)
+	{    
 		perror("bind");
 		exit(1);
 	}
@@ -65,6 +60,7 @@ int main(int argc, char* argv[]) {
 			exit(1);
 		}
 		pthread_create(&tid, NULL, threadfunc, (void*)new_socket);
+		pthread_detach(tid);
 	}
 	close(create_socket);
 	return 0;
@@ -88,15 +84,10 @@ void refered(int ns, char* filename) {
 	if((fp = fopen(filename,"r")) ==  NULL)
 	{
 		printf("can't open file\n");
-				
-	}
-
-	if(fp == NULL)
-	{
 		strcpy (header_buff, "HTTP/1.1 404 Not Found\r\nContent-Length: 0\r\nContent-Type: text/plain\r\nConnection: keep-alive\r\n\r\n");
 		write (ns, header_buff, strlen(header_buff));
 	}
-	else if(fp != NULL)
+	else
 	{
 		strcpy (header_buff, "HTTP/1.1 200 OK\r\nContent-Length: ");
 		strcat (header_buff, filesize);
@@ -114,16 +105,23 @@ void *threadfunc(void *vargp)
 	int* new_socket = (int *) vargp;
 	struct sockaddr_in address;
 	socklen_t addrlen;
-	char buffer[1024] = {};
-	char getPath[1024] = {};
+	char buffer[512] = {};
+	char getPath[512] = {};
+	char openfilename[200] = {};
+	int fd;
 
-	recv(*new_socket, buffer, 1024, 0);
+	recv(*new_socket, buffer, 4096, 0);
 	printf("%s\n", buffer);
-
 	strcpy(getPath,basicpath);
+
 	strtok(buffer," ");
-	strcat(getPath,strtok(NULL," "));
-	
+	strcpy(openfilename,strtok(NULL," "));
+
+	if(strcmp(openfilename,"/") == 0)
+		strcpy(openfilename,"/index.html");
+		
+	strcat(getPath,openfilename);
+
 	refered(*new_socket,getPath);
 	free(vargp);
 	return NULL;
