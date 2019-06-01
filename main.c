@@ -12,11 +12,19 @@
 
 char basicpath[512] = ".";
 
+typedef struct SocketSet
+{
+	int ns;
+	char* ip;
+}SocketSet;
+
 void *threadfunc(void *vargp);
 
 void refered(int ns, char* filename);
 
 void responseCGI(int ns, char * cgi);
+
+void logwrite();
    
 int main(int argc, char* argv[]) {    
 	struct sockaddr_in address;
@@ -115,8 +123,6 @@ void *threadfunc(void *vargp)
 	char openfilename[200] = {};
 	FILE * fp;
 
-//	fp = fopen("log.txt","a+");
-
 	recv(*new_socket, buffer, 1024, 0);
 	if(strcmp(buffer,"") == 0)
 		return NULL;
@@ -129,6 +135,7 @@ void *threadfunc(void *vargp)
 
 	if(strcmp(openfilename,"/") == 0)
 		strcpy(openfilename,"/index.html");
+	strcat(getPath,openfilename);
 
 	if(strstr(openfilename,"total.cgi") != NULL)
 	{
@@ -136,8 +143,6 @@ void *threadfunc(void *vargp)
 	}
 	else
 	{
-//		printf("get %s\n",getPath);
-		strcat(getPath,openfilename);
 		refered(*new_socket,getPath);
 	}
 
