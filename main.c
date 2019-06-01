@@ -29,14 +29,14 @@ void logwrite();
 void filewrite(char *ip, char *filename, int size);
    
 int main(int argc, char* argv[]) {
-	struct sockaddr_in address, client;
-	struct SocketSet * ipAndSd;
 	int create_socket;
 	int optvalue = 1;
+	int PORT = atoi(argv[2]);
+	struct sockaddr_in address, client;
 	socklen_t addrlen, clilen;
+	struct SocketSet * ipAndSd;
 	pthread_t tid;
 	char aa[20] = {};
-	int PORT = atoi(argv[2]);
 	FILE *fp;
 
 	fp = fopen("log.txt","w");
@@ -157,15 +157,12 @@ void *threadfunc(void *vargp)
 
 void responseCGI(SocketSet* set_socket, char * cgi)
 {
-	int n;
-	int m;
-	int i;
+	int n, m, i, ifilelen;
 	int sum = 0;
 	char file[64] = {};
 	char header_buff[2048] = {};
 	char filelen[100] = {};
 	char operation[100] = {};
-	int ifilelen;
 
 	strcpy(operation,cgi);
 	strtok(cgi,"=");
