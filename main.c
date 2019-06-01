@@ -20,21 +20,27 @@ typedef struct SocketSet
 
 void *threadfunc(void *vargp);
 
-void refered(int ns, char* filename);
+void refered(SocketSet* set_socket, char* filename);
 
-void responseCGI(int ns, char * cgi);
+void responseCGI(SocketSet* set_socket, char * cgi);
 
 void logwrite();
-   
-int main(int argc, char* argv[]) {    
-	struct sockaddr_in address;
-	int create_socket;
-	int *new_socket;
-	int optvalue = 1;
-	socklen_t addrlen;
-	pthread_t tid;
-	int PORT = atoi(argv[2]);
 
+void filewrite(char *ip, char *filename, int size);
+   
+int main(int argc, char* argv[]) {
+	struct sockaddr_in address, client;
+	struct SocketSet * ipAndSd;
+	int create_socket;
+	int optvalue = 1;
+	socklen_t addrlen, clilen;
+	pthread_t tid;
+	char aa[20] = {};
+	int PORT = atoi(argv[2]);
+	FILE *fp;
+
+	fp = fopen("log.txt","w");
+	fclose(fp);
 	strcat(basicpath,argv[1]);
 
 	if ((create_socket = socket(AF_INET, SOCK_STREAM, 0)) == -1)
@@ -63,20 +69,23 @@ int main(int argc, char* argv[]) {
 
 	while (1)
 	{
-		new_socket = (int *)malloc(sizeof(int));
-		if ((*new_socket = accept(create_socket, (struct sockaddr *)&address, &addrlen))==-1){
+		ipAndSd = (SocketSet *) malloc(sizeof(SocketSet));
+
+		if ((ipAndSd->ns = accept(create_socket, (struct sockaddr *)&client, &clilen))==-1)
+		{
 			perror("accept");
 			exit(1);
 		}
+		ipAndSd->ip = inet_ntoa(client.sin_addr);
 
-		pthread_create(&tid, NULL, threadfunc, (void*)new_socket);
+		pthread_create(&tid, NULL, threadfunc, (void*)ipAndSd);
 		pthread_join(tid,NULL);
 	}
 	close(create_socket);
 	return 0;
 }
 
-void refered(int ns, char* filename) {
+void refered(SocketSet* set_socket, char* filename) {
 	struct stat filestat;
 	FILE *fp;
 	int fd;
@@ -95,7 +104,8 @@ void refered(int ns, char* filename) {
 	if((fp = fopen(filename,"r")) ==  NULL)
 	{
 		strcpy (header_buff, "HTTP/1.1 404 Not Found\r\nContent-Length: 0\r\nContent-Type: text/plain\r\nConnection: keep-alive\r\n\r\n");
-		write (ns, header_buff, strlen(header_buff));
+		write (set_socket->ns, header_buff, strlen(header_buff));
+		filewrite(set_socket->ip, filename, 0);
 	}
 	else
 	{
@@ -103,19 +113,17 @@ void refered(int ns, char* filename) {
 		strcat (header_buff, filesize);
 		strcat (header_buff, "\r\nContent-Type: */* \r\nConnection: keep-alive\r\n\r\n");
 		fread (file_buff, sizeof(char), filestat.st_size + 1, fp);
-
-		write (ns, header_buff, strlen(header_buff));
-		write (ns, file_buff, filestat.st_size);
+		write (set_socket->ns, header_buff, strlen(header_buff));
+		write (set_socket->ns, file_buff, filestat.st_size);
 		close(fd);
 		fclose(fp);
-
-
+		filewrite(set_socket->ip, filename, filestat.st_size);
 	}
 }
 
 void *threadfunc(void *vargp)
 {
-	int* new_socket = (int *) vargp;
+	struct SocketSet* set_socket = (SocketSet *) vargp;
 	struct sockaddr_in address;
 	socklen_t addrlen;
 	char buffer[1024] = {};
@@ -123,7 +131,7 @@ void *threadfunc(void *vargp)
 	char openfilename[200] = {};
 	FILE * fp;
 
-	recv(*new_socket, buffer, 1024, 0);
+	recv(set_socket->ns, buffer, 1024, 0);
 	if(strcmp(buffer,"") == 0)
 		return NULL;
 	
@@ -138,20 +146,16 @@ void *threadfunc(void *vargp)
 	strcat(getPath,openfilename);
 
 	if(strstr(openfilename,"total.cgi") != NULL)
-	{
-		responseCGI(*new_socket,openfilename);
-	}
+		responseCGI(set_socket,openfilename);
 	else
-	{
-		refered(*new_socket,getPath);
-	}
+		refered(set_socket,getPath);
 
-	close(*new_socket);
+	close(set_socket->ns);
 	free(vargp);
 	return NULL;
 }
 
-void responseCGI(int ns, char * cgi)
+void responseCGI(SocketSet* set_socket, char * cgi)
 {
 	int n;
 	int m;
@@ -160,8 +164,10 @@ void responseCGI(int ns, char * cgi)
 	char file[64] = {};
 	char header_buff[2048] = {};
 	char filelen[100] = {};
+	char operation[100] = {};
 	int ifilelen;
-	
+
+	strcpy(operation,cgi);
 	strtok(cgi,"=");
 	n = atoi(strtok(NULL,"&"));
 	strtok(NULL,"=");
@@ -178,6 +184,17 @@ void responseCGI(int ns, char * cgi)
 	strcat (header_buff,filelen);
 	strcat (header_buff, "\r\nContent-Type: text/plain \r\nConnection: keep-alive\r\n\r\n");
 
-	write (ns, header_buff, strlen(header_buff));
-	write(ns, file,ifilelen);
+	write (set_socket->ns, header_buff, strlen(header_buff));
+	write(set_socket->ns, file,ifilelen);
+	filewrite(set_socket->ip, operation, ifilelen);
+}
+
+void filewrite(char *ip, char *filename, int size)
+{
+	FILE *fp;
+	
+	fp = fopen("log.txt","a+");
+	fprintf(fp, "%s %s %d\n",ip,filename,size);
+	
+	fclose(fp);
 }
